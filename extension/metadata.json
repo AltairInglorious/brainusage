@@ -1,0 +1,10 @@
+{
+  "uuid": "usage-limits@example",
+  "name": "Usage Limits",
+  "description": "Minimal GNOME top-bar indicator scaffold.",
+  "version": 1,
+  "shell-version": [
+    "45",
+    "46"
+  ]
+}
