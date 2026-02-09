@@ -14,7 +14,11 @@ fi
 
 mkdir -p "$ROOT_DIR/.sisyphus/evidence"
 
-gnome-extensions pack "$EXTENSION_DIR" --force --out-dir "$ROOT_DIR" 2>&1 | tee "$EVIDENCE_PATH"
+gnome-extensions pack "$EXTENSION_DIR" \
+  --force \
+  --schema=schemas/org.gnome.shell.extensions.usage-limits.gschema.xml \
+  --extra-source=lib \
+  --out-dir "$ROOT_DIR" 2>&1 | tee "$EVIDENCE_PATH"
 
 if [[ -f "$ZIP_PATH" ]]; then
   printf 'Packed: %s\n' "$ZIP_PATH"
