@@ -2,7 +2,7 @@
 
 GNOME Shell extension that tracks your AI usage limits for **Claude** (Anthropic) and **Codex/ChatGPT** (OpenAI) and displays remaining percentages in the top panel.
 
-![GNOME Shell 45+](https://img.shields.io/badge/GNOME_Shell-45%20%7C%2046-blue)
+![GNOME Shell 45+](https://img.shields.io/badge/GNOME_Shell-45--49-blue)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green)
 
 ## Features
@@ -16,7 +16,7 @@ GNOME Shell extension that tracks your AI usage limits for **Claude** (Anthropic
 
 ## Prerequisites
 
-- GNOME Shell 45 or 46
+- GNOME Shell 45 to 49
 - Active [Claude](https://claude.ai) and/or [Codex](https://chatgpt.com) accounts with OAuth credentials on disk:
   - Claude: `~/.claude/.credentials.json`
   - Codex: `~/.codex/auth.json`
