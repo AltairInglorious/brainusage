@@ -1,6 +1,6 @@
 # Brain Usage
 
-GNOME Shell extension that tracks your AI usage limits for **Claude** (Anthropic) and **Codex/ChatGPT** (OpenAI) and displays remaining percentages in the top panel.
+GNOME Shell extension that tracks your AI usage limits for **Claude** (Anthropic) and **Codex/ChatGPT** (OpenAI) and displays provider-marked percentages in the top panel.
 
 ![GNOME Shell 45+](https://img.shields.io/badge/GNOME_Shell-45--49-blue)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green)
@@ -9,7 +9,9 @@ GNOME Shell extension that tracks your AI usage limits for **Claude** (Anthropic
 
 - Session and weekly usage tracking for Claude and Codex
 - Color-coded progress bars (green / yellow / red) based on remaining percentage
-- Configurable panel label: show minimum across all, or a specific window
+- Configurable panel display: show any combination of Claude/Codex session and week values
+- Provider icons in the panel and popup, with Claude highlighted in orange
+- Toggle the panel percentage between remaining and used
 - Desktop notifications when usage drops below 20%
 - Auto-refresh every 3 minutes with manual refresh option
 - Dark theme with modern card-based popup design
@@ -56,24 +58,32 @@ bash scripts/dev/enable.sh
 
 ## Usage
 
-Once enabled, a percentage indicator appears in the top panel. Click it to see a detailed breakdown:
+Once enabled, a provider-marked indicator appears in the top panel. Click it to see a detailed breakdown:
 
-- **Session** and **Weekly** usage for each provider
+- **Session** and **Week** usage windows for each provider in the popup
 - Progress bars with color-coded status
 - Time until each window resets
 - Next automatic update countdown
 
 ### Panel display modes
 
-Right-click or open the popup and select **Panel display** to choose what the top-bar label shows:
+Open the popup and use the **Panel display** switches to choose which top-bar values are shown:
 
 | Mode | Description |
 |------|-------------|
-| All (minimum) | Lowest percentage across all windows |
-| Claude Session | Claude session usage only |
-| Claude Weekly | Claude weekly usage only |
-| Codex Session | Codex session usage only |
-| Codex Weekly | Codex weekly usage only |
+| Claude Session | Claude session value in the panel as `s` |
+| Claude Week | Claude week value in the panel as `w` |
+| Codex Session | Codex session value in the panel as `s` |
+| Codex Week | Codex week value in the panel as `w` |
+
+You can enable more than one of these at the same time, including all four values.
+
+### Panel percent mode
+
+Open the **Percent mode** submenu to choose whether the top-bar value shows:
+
+- **Left**: remaining percentage for every selected panel metric
+- **Used**: used percentage for every selected panel metric
 
 ## Development
 

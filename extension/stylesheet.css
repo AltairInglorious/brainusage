@@ -1,3 +1,39 @@
+/* Panel */
+.usage-panel-box {
+    spacing: 6px;
+}
+
+.usage-panel-group {
+    spacing: 6px;
+}
+
+.usage-panel-icon {
+    icon-size: 14px;
+}
+
+.usage-panel-metric-box {
+    spacing: 2px;
+}
+
+.usage-panel-context {
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.usage-panel-value {
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.usage-provider-codex {
+    color: #ffffff;
+}
+
+.usage-provider-claude {
+    color: #f97316;
+}
+
 /* Popup Container */
 .usage-popup-box {
     padding: 16px;
@@ -17,10 +53,14 @@
 .usage-service-header {
     spacing: 8px;
 }
+
+.usage-service-icon {
+    icon-size: 16px;
+}
+
 .usage-service-name {
     font-size: 15px;
     font-weight: bold;
-    color: #ffffff;
 }
 
 /* Window Row */
