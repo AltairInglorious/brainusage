@@ -87,6 +87,8 @@ describe('Claude provider', () => {
         expect(result.data).toEqual({
             sessionRemainingPct: 60,
             weeklyRemainingPct: 25,
+            sessionUsedPct: 40,
+            weeklyUsedPct: 75,
             sessionResetsAtIso: '2026-02-09T00:00:00.000Z',
             weeklyResetsAtIso: '2026-02-12T00:00:00.000Z',
         });

@@ -1,22 +1,118 @@
 const VERSION = 'brainusage 0.0.1';
 
-export const PANEL_LABEL_MODES = ['min', 'claude-session', 'claude-weekly', 'codex-session', 'codex-weekly'];
+const PANEL_MODE_CONFIG = [
+    {
+        key: 'codex-session',
+        providerKey: 'codex',
+        providerName: 'Codex',
+        windowKey: 'session',
+        panelShortLabel: 's',
+        serviceLabel: 'Session',
+        remainingKey: 'sessionRemainingPct',
+        usedKey: 'sessionUsedPct',
+    },
+    {
+        key: 'codex-weekly',
+        providerKey: 'codex',
+        providerName: 'Codex',
+        windowKey: 'weekly',
+        panelShortLabel: 'w',
+        serviceLabel: 'Week',
+        remainingKey: 'weeklyRemainingPct',
+        usedKey: 'weeklyUsedPct',
+    },
+    {
+        key: 'claude-session',
+        providerKey: 'claude',
+        providerName: 'Claude',
+        windowKey: 'session',
+        panelShortLabel: 's',
+        serviceLabel: 'Session',
+        remainingKey: 'sessionRemainingPct',
+        usedKey: 'sessionUsedPct',
+    },
+    {
+        key: 'claude-weekly',
+        providerKey: 'claude',
+        providerName: 'Claude',
+        windowKey: 'weekly',
+        panelShortLabel: 'w',
+        serviceLabel: 'Week',
+        remainingKey: 'weeklyRemainingPct',
+        usedKey: 'weeklyUsedPct',
+    },
+];
 
-function getPanelLabelValue(summary, mode) {
-    if (mode === 'min' || !mode)
-        return summary?.minRemainingPct;
+const PANEL_MODE_CONFIG_MAP = new Map(
+    PANEL_MODE_CONFIG.map((config) => [config.key, config]),
+);
 
-    const providers = summary?.providers;
-    if (!providers)
-        return undefined;
+export const PANEL_DISPLAY_MODES = PANEL_MODE_CONFIG.map((config) => config.key);
+export const DEFAULT_PANEL_DISPLAY_MODES = [...PANEL_DISPLAY_MODES];
+export const PANEL_PERCENT_MODES = ['left', 'used'];
 
-    switch (mode) {
-        case 'claude-session': return providers.claude?.data?.sessionRemainingPct;
-        case 'claude-weekly':  return providers.claude?.data?.weeklyRemainingPct;
-        case 'codex-session':  return providers.codex?.data?.sessionRemainingPct;
-        case 'codex-weekly':   return providers.codex?.data?.weeklyRemainingPct;
-        default: return summary?.minRemainingPct;
+function getPanelMetricFromConfig(summary, config, percentMode) {
+    const data = summary?.providers?.[config.providerKey]?.data;
+    const percentValue = percentMode === 'used'
+        ? data?.[config.usedKey]
+        : data?.[config.remainingKey];
+
+    return {
+        key: config.key,
+        providerKey: config.providerKey,
+        providerName: config.providerName,
+        windowKey: config.windowKey,
+        windowShortLabel: config.panelShortLabel,
+        serviceLabel: config.serviceLabel,
+        remainingPct: data?.[config.remainingKey],
+        usedPct: data?.[config.usedKey],
+        percentText: formatPercent(percentValue),
+    };
+}
+
+function normalizePanelDisplayModes(modes) {
+    if (!Array.isArray(modes))
+        return [...DEFAULT_PANEL_DISPLAY_MODES];
+
+    const uniqueModes = new Set(modes);
+    const validModes = PANEL_DISPLAY_MODES.filter((mode) => uniqueModes.has(mode));
+
+    return modes.length === 0 ? [] : validModes;
+}
+
+function buildPanelGroupViewModels(summary, panelDisplayModes, panelPercentMode) {
+    if (!summary)
+        return [];
+
+    const groups = [];
+    const groupByProvider = new Map();
+
+    for (const mode of normalizePanelDisplayModes(panelDisplayModes)) {
+        const config = PANEL_MODE_CONFIG_MAP.get(mode);
+        if (!config)
+            continue;
+
+        const metric = getPanelMetricFromConfig(summary, config, panelPercentMode);
+        let group = groupByProvider.get(config.providerKey);
+
+        if (!group) {
+            group = {
+                providerKey: config.providerKey,
+                providerName: config.providerName,
+                items: [],
+            };
+            groupByProvider.set(config.providerKey, group);
+            groups.push(group);
+        }
+
+        group.items.push({
+            key: metric.key,
+            label: metric.windowShortLabel,
+            percentText: metric.percentText,
+        });
     }
+
+    return groups;
 }
 
 function formatPercent(value) {
@@ -110,20 +206,23 @@ function buildWindowViewModel(label, remainingPct, resetsAtIso, now) {
     };
 }
 
-function buildServiceViewModel(name, providerData, providerCode, now) {
+function buildServiceViewModel(key, name, providerData, providerCode, now) {
     const data = providerData ?? null;
+    const sessionConfig = PANEL_MODE_CONFIG_MAP.get(`${key}-session`);
+    const weeklyConfig = PANEL_MODE_CONFIG_MAP.get(`${key}-weekly`);
 
     return {
+        key,
         name,
         windows: [
             buildWindowViewModel(
-                'Session',
+                sessionConfig?.serviceLabel ?? 'Session',
                 data?.sessionRemainingPct,
                 data?.sessionResetsAtIso,
                 now,
             ),
             buildWindowViewModel(
-                'Weekly',
+                weeklyConfig?.serviceLabel ?? 'Week',
                 data?.weeklyRemainingPct,
                 data?.weeklyResetsAtIso,
                 now,
@@ -155,16 +254,18 @@ export function buildUsageViewModel(summary, deps = {}) {
     const now = deps.now ?? Date.now();
     const version = deps.version ?? VERSION;
     const pollIntervalMs = deps.pollIntervalMs ?? 180_000;
-    const panelLabelMode = deps.panelLabelMode ?? 'min';
+    const panelDisplayModes = deps.panelDisplayModes ?? DEFAULT_PANEL_DISPLAY_MODES;
+    const panelPercentMode = deps.panelPercentMode === 'used' ? 'used' : 'left';
 
     const claude = summary?.providers?.claude ?? null;
     const codex = summary?.providers?.codex ?? null;
 
     return {
-        panelLabel: formatPercent(getPanelLabelValue(summary, panelLabelMode)),
+        panelGroups: buildPanelGroupViewModels(summary, panelDisplayModes, panelPercentMode),
+        panelPercentMode,
         services: [
-            buildServiceViewModel('Codex', codex?.data, codex?.code, now),
-            buildServiceViewModel('Claude', claude?.data, claude?.code, now),
+            buildServiceViewModel('codex', 'Codex', codex?.data, codex?.code, now),
+            buildServiceViewModel('claude', 'Claude', claude?.data, claude?.code, now),
         ],
         version,
         lastUpdate: formatNextUpdate(summary?.lastUpdatedAtIso, pollIntervalMs, now),

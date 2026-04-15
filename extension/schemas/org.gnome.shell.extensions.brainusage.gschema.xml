@@ -2,11 +2,18 @@
 <schemalist>
   <schema id="org.gnome.shell.extensions.brainusage"
           path="/org/gnome/shell/extensions/brainusage/">
-    <key name="panel-label-mode" type="s">
-      <default>'min'</default>
-      <summary>Which metric to show in the panel</summary>
+    <key name="panel-display-modes" type="as">
+      <default>['codex-session', 'codex-weekly', 'claude-session', 'claude-weekly']</default>
+      <summary>Which metrics to show in the panel</summary>
       <description>
-        Options: min, claude-session, claude-weekly, codex-session, codex-weekly
+        Options: codex-session, codex-weekly, claude-session, claude-weekly
+      </description>
+    </key>
+    <key name="panel-percent-mode" type="s">
+      <default>'left'</default>
+      <summary>Whether the panel shows remaining or used percentage</summary>
+      <description>
+        Options: left, used
       </description>
     </key>
   </schema>
