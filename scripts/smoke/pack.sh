@@ -2,4 +2,7 @@
 set -euo pipefail
 
 mkdir -p .sisyphus/evidence
-gnome-extensions pack extension --force 2>&1 | tee .sisyphus/evidence/task-0-pack.txt
+gnome-extensions pack extension --force \
+  --extra-source=lib \
+  --extra-source=assets \
+  2>&1 | tee .sisyphus/evidence/task-0-pack.txt
