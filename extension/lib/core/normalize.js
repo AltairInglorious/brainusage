@@ -11,6 +11,14 @@ function clampPercent(value) {
     return value;
 }
 
+function toFinitePercent(value) {
+    const percent = Number(value);
+    if (!Number.isFinite(percent))
+        return undefined;
+
+    return clampPercent(percent);
+}
+
 function unixSecondsToIso(value) {
     const seconds = Number(value);
     if (!Number.isFinite(seconds))
@@ -20,13 +28,19 @@ function unixSecondsToIso(value) {
 }
 
 export function normalizeClaudeUsage(payload) {
-    const fiveHourUtilization = Number(payload?.five_hour?.utilization);
-    const sevenDayUtilization = Number(payload?.seven_day?.utilization);
+    const fiveHourUtilization = toFinitePercent(payload?.five_hour?.utilization);
+    const sevenDayUtilization = toFinitePercent(payload?.seven_day?.utilization);
 
     return {
         data: {
-            sessionRemainingPct: clampPercent(100 - fiveHourUtilization),
-            weeklyRemainingPct: clampPercent(100 - sevenDayUtilization),
+            sessionRemainingPct: Number.isFinite(fiveHourUtilization)
+                ? clampPercent(100 - fiveHourUtilization)
+                : 0,
+            weeklyRemainingPct: Number.isFinite(sevenDayUtilization)
+                ? clampPercent(100 - sevenDayUtilization)
+                : 0,
+            sessionUsedPct: fiveHourUtilization,
+            weeklyUsedPct: sevenDayUtilization,
             sessionResetsAtIso: payload?.five_hour?.resets_at ?? null,
             weeklyResetsAtIso: payload?.seven_day?.resets_at ?? null,
         },
@@ -38,11 +52,19 @@ export function normalizeClaudeUsage(payload) {
 export function normalizeCodexUsage(payload) {
     const primaryWindow = payload?.rate_limit?.primary_window;
     const secondaryWindow = payload?.rate_limit?.secondary_window;
+    const primaryUsedPct = toFinitePercent(primaryWindow?.used_percent);
+    const secondaryUsedPct = toFinitePercent(secondaryWindow?.used_percent);
 
     return {
         data: {
-            sessionRemainingPct: clampPercent(100 - Number(primaryWindow?.used_percent)),
-            weeklyRemainingPct: clampPercent(100 - Number(secondaryWindow?.used_percent)),
+            sessionRemainingPct: Number.isFinite(primaryUsedPct)
+                ? clampPercent(100 - primaryUsedPct)
+                : 0,
+            weeklyRemainingPct: Number.isFinite(secondaryUsedPct)
+                ? clampPercent(100 - secondaryUsedPct)
+                : 0,
+            sessionUsedPct: primaryUsedPct,
+            weeklyUsedPct: secondaryUsedPct,
             sessionResetsAtIso: unixSecondsToIso(primaryWindow?.reset_at),
             weeklyResetsAtIso: unixSecondsToIso(secondaryWindow?.reset_at),
         },

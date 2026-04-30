@@ -18,6 +18,7 @@ gnome-extensions pack "$EXTENSION_DIR" \
   --force \
   --schema=schemas/org.gnome.shell.extensions.brainusage.gschema.xml \
   --extra-source=lib \
+  --extra-source=assets \
   --out-dir "$ROOT_DIR" 2>&1 | tee "$EVIDENCE_PATH"
 
 if [[ -f "$ZIP_PATH" ]]; then

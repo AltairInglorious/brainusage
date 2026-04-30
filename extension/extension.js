@@ -1,4 +1,5 @@
 import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
@@ -14,13 +15,91 @@ import {createClaudeProvider} from './lib/providers/claude.js';
 import {createCodexProvider} from './lib/providers/codex.js';
 import {readTextFile} from './lib/runtime/fs.js';
 import {createFetch} from './lib/runtime/fetch.js';
-import {buildUsageViewModel, PANEL_LABEL_MODES} from './lib/ui/render.js';
+import {
+    buildUsageViewModel,
+    PANEL_DISPLAY_MODES,
+    PANEL_LABEL_MODES,
+    PANEL_PERCENT_MODES,
+} from './lib/ui/render.js';
 
 const FILL_CLASSES = {
     green: 'usage-fill-green',
     yellow: 'usage-fill-yellow',
     red: 'usage-fill-red',
 };
+
+const StayOpenSwitchMenuItem = GObject.registerClass(
+class StayOpenSwitchMenuItem extends PopupMenu.PopupSwitchMenuItem {
+    activate(event) {
+        if (this._switch?.mapped)
+            this.toggle();
+
+        // Keep the panel menu open so users can toggle multiple display modes
+        // before dismissing the popup.
+        return Clutter.EVENT_STOP;
+    }
+});
+
+function getProviderStyleClass(baseClass, providerKey) {
+    const classes = [baseClass];
+
+    if (providerKey === 'claude')
+        classes.push('usage-provider-claude');
+    else if (providerKey === 'codex')
+        classes.push('usage-provider-codex');
+
+    return classes.join(' ');
+}
+
+function setProviderStyleClass(actor, baseClass, providerKey) {
+    actor.style_class = getProviderStyleClass(baseClass, providerKey);
+}
+
+function loadProviderIcons(extensionPath) {
+    return {
+        codex: new Gio.FileIcon({
+            file: Gio.File.new_for_path(
+                GLib.build_filenamev([extensionPath, 'assets', 'codex-symbolic.svg']),
+            ),
+        }),
+        claude: new Gio.FileIcon({
+            file: Gio.File.new_for_path(
+                GLib.build_filenamev([extensionPath, 'assets', 'claude-symbolic.svg']),
+            ),
+        }),
+    };
+}
+
+function getStatusAreaActor(actorOrButton) {
+    if (!actorOrButton)
+        return null;
+
+    if (typeof actorOrButton.get_parent === 'function')
+        return actorOrButton;
+
+    if (actorOrButton.container && typeof actorOrButton.container.get_parent === 'function')
+        return actorOrButton.container;
+
+    return null;
+}
+
+function pinIndicatorNearQuickSettings(indicator) {
+    const rightBox = Main.panel?._rightBox ?? null;
+    const indicatorActor = getStatusAreaActor(indicator);
+
+    if (!rightBox || !indicatorActor || indicatorActor.get_parent() !== rightBox)
+        return;
+
+    const quickSettingsActor = getStatusAreaActor(Main.panel.statusArea.quickSettings);
+    if (quickSettingsActor && quickSettingsActor.get_parent() === rightBox) {
+        rightBox.set_child_below_sibling(indicatorActor, quickSettingsActor);
+        return;
+    }
+
+    const childCount = rightBox.get_n_children();
+    if (childCount > 0)
+        rightBox.set_child_at_index(indicatorActor, childCount - 1);
+}
 
 function createWindowWidgets() {
     const box = new St.BoxLayout({
@@ -62,11 +141,18 @@ function createWindowWidgets() {
     return {box, label, track, fill, remainingLabel, resetsLabel};
 }
 
-function createServiceSection() {
+function createServiceSection(providerKey, providerIcon) {
     const container = new St.BoxLayout({vertical: true, style_class: 'usage-service-card'});
 
     const header = new St.BoxLayout({style_class: 'usage-service-header'});
-    const nameLabel = new St.Label({style_class: 'usage-service-name'});
+    const icon = new St.Icon({
+        gicon: providerIcon,
+        icon_size: 16,
+    });
+    setProviderStyleClass(icon, 'usage-service-icon', providerKey);
+    const nameLabel = new St.Label();
+    setProviderStyleClass(nameLabel, 'usage-service-name', providerKey);
+    header.add_child(icon);
     header.add_child(nameLabel);
 
     const window0 = createWindowWidgets();
@@ -80,41 +166,108 @@ function createServiceSection() {
     container.add_child(window1.box);
     container.add_child(warningLabel);
 
-    return {container, nameLabel, windows: [window0, window1], warningLabel};
+    return {container, icon, nameLabel, windows: [window0, window1], warningLabel};
 }
 
 const MODE_LABELS = {
-    'min': 'All (minimum)',
-    'claude-session': 'Claude Session',
-    'claude-weekly': 'Claude Weekly',
     'codex-session': 'Codex Session',
-    'codex-weekly': 'Codex Weekly',
+    'codex-weekly': 'Codex Week',
+    'claude-session': 'Claude Session',
+    'claude-weekly': 'Claude Week',
 };
+
+const PERCENT_MODE_LABELS = {
+    left: 'Left',
+    used: 'Used',
+};
+
+function clearChildren(actor) {
+    for (const child of actor.get_children())
+        child.destroy();
+}
+
+function createPanelMetricWidget(providerKey, metric) {
+    const box = new St.BoxLayout({style_class: 'usage-panel-metric-box'});
+    const contextLabel = new St.Label({
+        text: metric.label,
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+    const valueLabel = new St.Label({
+        text: metric.percentText,
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+
+    setProviderStyleClass(contextLabel, 'usage-panel-context', providerKey);
+    setProviderStyleClass(valueLabel, 'usage-panel-value', providerKey);
+
+    box.add_child(contextLabel);
+    box.add_child(valueLabel);
+
+    return box;
+}
+
+function createPanelGroupWidget(providerKey, providerIcon, items) {
+    const box = new St.BoxLayout({
+        style_class: 'usage-panel-group',
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+
+    const icon = new St.Icon({
+        gicon: providerIcon,
+        icon_size: 14,
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+    setProviderStyleClass(icon, 'usage-panel-icon', providerKey);
+    box.add_child(icon);
+
+    for (const item of items)
+        box.add_child(createPanelMetricWidget(providerKey, item));
+
+    return box;
+}
 
 const UsageIndicator = GObject.registerClass(
 class UsageIndicator extends PanelMenu.Button {
-    _init(scheduler, settings) {
+    _init(scheduler, settings, providerIcons) {
         super._init(0.0, 'Usage Indicator');
 
         this._scheduler = scheduler;
         this._settings = settings;
+        this._providerIcons = providerIcons;
         this._lastSummary = null;
         this._timerSourceId = 0;
-        this._modeItems = [];
+        this._displayModeItems = [];
+        this._labelModeItems = [];
+        this._percentModeItems = [];
+        this._settingsChangedIds = [];
 
-        this._label = new St.Label({
-            text: '--',
+        this._panelBox = new St.BoxLayout({
+            style_class: 'usage-panel-box',
             y_align: Clutter.ActorAlign.CENTER,
         });
-        this.add_child(this._label);
+
+        this._panelPlaceholder = new St.Label({
+            text: '--',
+            style_class: 'usage-panel-value',
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+
+        this._panelBox.add_child(this._panelPlaceholder);
+        this.add_child(this._panelBox);
 
         this._buildPopup();
         this._startRelativeTimeTimer();
 
-        this._settingsChangedId = this._settings.connect('changed::panel-label-mode', () => {
+        const onSettingsChanged = () => {
             this._updateOrnaments();
             this._refreshRelativeTimes();
-        });
+        };
+
+        this._settingsChangedIds = [
+            this._settings.connect('changed::panel-display-modes', onSettingsChanged),
+            this._settings.connect('changed::panel-percent-mode', onSettingsChanged),
+            this._settings.connect('changed::panel-label-mode', onSettingsChanged),
+        ];
     }
 
     _buildPopup() {
@@ -128,10 +281,10 @@ class UsageIndicator extends PanelMenu.Button {
             style_class: 'usage-popup-box',
         });
 
-        this._codexSection = createServiceSection();
+        this._codexSection = createServiceSection('codex', this._providerIcons.codex);
         this._codexSection.nameLabel.text = 'Codex';
 
-        this._claudeSection = createServiceSection();
+        this._claudeSection = createServiceSection('claude', this._providerIcons.claude);
         this._claudeSection.nameLabel.text = 'Claude';
 
         const separator = new St.Widget({style_class: 'usage-separator'});
@@ -162,32 +315,116 @@ class UsageIndicator extends PanelMenu.Button {
         this._refreshItem = refreshItem;
         this.menu.addMenuItem(refreshItem);
 
-        this._buildDisplaySubmenu();
+        this._buildDisplaySection();
+        this._buildLabelSubmenu();
+        this._buildPercentSubmenu();
     }
 
-    _buildDisplaySubmenu() {
-        this._displaySubmenu = new PopupMenu.PopupSubMenuMenuItem('Panel display');
-        this._modeItems = [];
+    _buildDisplaySection() {
+        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem('Panel display'));
+        this._displayModeItems = [];
 
-        for (const mode of PANEL_LABEL_MODES) {
-            const item = new PopupMenu.PopupMenuItem(MODE_LABELS[mode] ?? mode);
+        for (const mode of PANEL_DISPLAY_MODES) {
+            const item = new StayOpenSwitchMenuItem(
+                MODE_LABELS[mode] ?? mode,
+                this._getPanelDisplayModes().includes(mode),
+            );
             item._modeKey = mode;
-            item.connect('activate', () => {
-                this._settings.set_string('panel-label-mode', mode);
+            item.connect('toggled', (_item, state) => {
+                this._setDisplayMode(mode, state);
             });
-            this._modeItems.push(item);
-            this._displaySubmenu.menu.addMenuItem(item);
+            this._displayModeItems.push(item);
+            this.menu.addMenuItem(item);
         }
 
         this._updateOrnaments();
-        this.menu.addMenuItem(this._displaySubmenu);
     }
 
     _updateOrnaments() {
+        this._updateDisplayOrnaments();
+        this._updateLabelModeOrnaments();
+        this._updatePercentModeOrnaments();
+    }
+
+    _updateDisplayOrnaments() {
+        const current = new Set(this._getPanelDisplayModes());
+        for (const item of this._displayModeItems) {
+            const isEnabled = current.has(item._modeKey);
+            if (item.state !== isEnabled)
+                item.setToggleState(isEnabled);
+        }
+    }
+
+    _getPanelDisplayModes() {
+        const configured = this._settings.get_strv('panel-display-modes');
+        const configuredSet = new Set(configured);
+        return PANEL_DISPLAY_MODES.filter((mode) => configuredSet.has(mode));
+    }
+
+    _setDisplayMode(mode, enabled) {
+        const current = new Set(this._getPanelDisplayModes());
+
+        if (enabled)
+            current.add(mode);
+        else
+            current.delete(mode);
+
+        const next = PANEL_DISPLAY_MODES.filter((key) => current.has(key));
+        this._settings.set_strv('panel-display-modes', next);
+    }
+
+    _buildLabelSubmenu() {
+        this._labelSubmenu = new PopupMenu.PopupSubMenuMenuItem('Label style');
+        this._labelModeItems = [];
+
+        for (const mode of PANEL_LABEL_MODES) {
+            const item = new PopupMenu.PopupMenuItem(mode === 'expanded' ? 'Expanded' : 'Compact');
+            item._labelModeKey = mode;
+            item.connect('activate', () => {
+                this._settings.set_string('panel-label-mode', mode);
+            });
+            this._labelModeItems.push(item);
+            this._labelSubmenu.menu.addMenuItem(item);
+        }
+
+        this._updateLabelModeOrnaments();
+        this.menu.addMenuItem(this._labelSubmenu);
+    }
+
+    _updateLabelModeOrnaments() {
         const current = this._settings.get_string('panel-label-mode');
-        for (const item of this._modeItems) {
+        for (const item of this._labelModeItems) {
             item.setOrnament(
-                item._modeKey === current
+                item._labelModeKey === current
+                    ? PopupMenu.Ornament.DOT
+                    : PopupMenu.Ornament.NONE,
+            );
+        }
+    }
+
+    _buildPercentSubmenu() {
+        this._percentSubmenu = new PopupMenu.PopupSubMenuMenuItem('Percent mode');
+        this._percentModeItems = [];
+
+        for (const mode of PANEL_PERCENT_MODES) {
+            const item = new PopupMenu.PopupMenuItem(PERCENT_MODE_LABELS[mode] ?? mode);
+            item._percentModeKey = mode;
+            item.connect('activate', () => {
+                this._settings.set_string('panel-percent-mode', mode);
+            });
+            this._percentModeItems.push(item);
+            this._percentSubmenu.menu.addMenuItem(item);
+        }
+
+        this._updatePercentModeOrnaments();
+        this.menu.addMenuItem(this._percentSubmenu);
+    }
+
+    _updatePercentModeOrnaments() {
+        const current = this._settings.get_string('panel-percent-mode');
+        for (const item of this._percentModeItems) {
+            item.setOrnament(
+                item._percentModeKey === current
                     ? PopupMenu.Ornament.DOT
                     : PopupMenu.Ornament.NONE,
             );
@@ -212,6 +449,8 @@ class UsageIndicator extends PanelMenu.Button {
         this._applyViewModel(buildUsageViewModel(this._lastSummary, {
             now: Date.now(),
             pollIntervalMs: DEFAULT_POLL_INTERVAL_MS,
+            panelDisplayModes: this._getPanelDisplayModes(),
+            panelPercentMode: this._settings.get_string('panel-percent-mode'),
             panelLabelMode: this._settings.get_string('panel-label-mode'),
         }));
     }
@@ -221,12 +460,31 @@ class UsageIndicator extends PanelMenu.Button {
         this._applyViewModel(buildUsageViewModel(summary, {
             now: Date.now(),
             pollIntervalMs: DEFAULT_POLL_INTERVAL_MS,
+            panelDisplayModes: this._getPanelDisplayModes(),
+            panelPercentMode: this._settings.get_string('panel-percent-mode'),
             panelLabelMode: this._settings.get_string('panel-label-mode'),
         }));
     }
 
     _applyViewModel(vm) {
-        this._label.text = vm.panelLabel;
+        clearChildren(this._panelBox);
+
+        if (vm.panelGroups.length > 0) {
+            for (const group of vm.panelGroups) {
+                this._panelBox.add_child(createPanelGroupWidget(
+                    group.providerKey,
+                    this._providerIcons[group.providerKey],
+                    group.items,
+                ));
+            }
+        } else {
+            this._panelPlaceholder = new St.Label({
+                text: '--',
+                style_class: 'usage-panel-value',
+                y_align: Clutter.ActorAlign.CENTER,
+            });
+            this._panelBox.add_child(this._panelPlaceholder);
+        }
 
         const sections = [this._codexSection, this._claudeSection];
 
@@ -235,6 +493,8 @@ class UsageIndicator extends PanelMenu.Button {
             const section = sections[i];
 
             section.nameLabel.text = svc.name;
+            setProviderStyleClass(section.icon, 'usage-service-icon', svc.key);
+            setProviderStyleClass(section.nameLabel, 'usage-service-name', svc.key);
 
             for (let j = 0; j < svc.windows.length; j++) {
                 const w = svc.windows[j];
@@ -278,11 +538,12 @@ class UsageIndicator extends PanelMenu.Button {
             this._refreshSignalId = null;
         }
 
-        if (this._settingsChangedId && this._settings) {
-            this._settings.disconnect(this._settingsChangedId);
-            this._settingsChangedId = null;
+        if (this._settings && this._settingsChangedIds.length > 0) {
+            for (const signalId of this._settingsChangedIds)
+                this._settings.disconnect(signalId);
         }
 
+        this._settingsChangedIds = [];
         this._settings = null;
         super.destroy();
     }
@@ -317,8 +578,13 @@ export default class UsageLimitsExtension extends Extension {
         });
 
         this._settings = this.getSettings();
-        this._indicator = new UsageIndicator(this._scheduler, this._settings);
-        Main.panel.addToStatusArea(this.uuid, this._indicator);
+        this._indicator = new UsageIndicator(
+            this._scheduler,
+            this._settings,
+            loadProviderIcons(this.path),
+        );
+        Main.panel.addToStatusArea(this.uuid, this._indicator, 0, 'right');
+        pinIndicatorNearQuickSettings(this._indicator);
         this._scheduler.start();
     }
 

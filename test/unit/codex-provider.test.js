@@ -75,6 +75,8 @@ describe('Codex provider', () => {
         expect(result.data).toEqual({
             sessionRemainingPct: 58,
             weeklyRemainingPct: 36,
+            sessionUsedPct: 42,
+            weeklyUsedPct: 64,
             sessionResetsAtIso: '2026-02-08T00:00:00.000Z',
             weeklyResetsAtIso: '2026-02-11T00:00:00.000Z',
         });
@@ -147,6 +149,8 @@ describe('Codex provider', () => {
         expect(result.data).toEqual({
             sessionRemainingPct: 65,
             weeklyRemainingPct: 0,
+            sessionUsedPct: 35,
+            weeklyUsedPct: undefined,
             sessionResetsAtIso: '2026-02-08T00:00:00.000Z',
             weeklyResetsAtIso: null,
         });

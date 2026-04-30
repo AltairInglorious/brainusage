@@ -1,6 +1,6 @@
 import {describe, expect, test} from 'bun:test';
 
-import {buildUsageViewModel, formatRelativeTime, getDotColor, PANEL_LABEL_MODES} from '../../extension/lib/ui/render.js';
+import {buildUsageViewModel, formatRelativeTime, getDotColor} from '../../extension/lib/ui/render.js';
 
 const NOW = new Date('2026-02-09T10:00:00Z').getTime();
 
@@ -14,11 +14,19 @@ function makeWindow(label, pct, resetsInText, dotColor) {
     };
 }
 
+function makePanelGroup(providerKey, providerName, items) {
+    return {
+        providerKey,
+        providerName,
+        items,
+    };
+}
+
 describe('buildUsageViewModel', () => {
     test('renders placeholder values when summary is null', () => {
         const view = buildUsageViewModel(null, {now: NOW});
 
-        expect(view.panelLabel).toBe('--');
+        expect(view.panelGroups).toEqual([]);
         expect(view.services).toHaveLength(2);
         expect(view.services[0].name).toBe('Codex');
         expect(view.services[1].name).toBe('Claude');
@@ -40,7 +48,6 @@ describe('buildUsageViewModel', () => {
 
     test('maps usage values with relative reset times', () => {
         const view = buildUsageViewModel({
-            minRemainingPct: 12.4,
             lastUpdatedAtIso: '2026-02-09T09:58:00.000Z',
             providers: {
                 claude: {
@@ -48,6 +55,8 @@ describe('buildUsageViewModel', () => {
                     data: {
                         sessionRemainingPct: 60,
                         weeklyRemainingPct: 25,
+                        sessionUsedPct: 40,
+                        weeklyUsedPct: 75,
                         sessionResetsAtIso: '2026-02-09T12:18:00.000Z',
                         weeklyResetsAtIso: '2026-02-13T17:00:00.000Z',
                     },
@@ -57,6 +66,8 @@ describe('buildUsageViewModel', () => {
                     data: {
                         sessionRemainingPct: 73,
                         weeklyRemainingPct: 91,
+                        sessionUsedPct: 27,
+                        weeklyUsedPct: 9,
                         sessionResetsAtIso: '2026-02-09T12:18:00.000Z',
                         weeklyResetsAtIso: '2026-02-13T17:00:00.000Z',
                     },
@@ -64,19 +75,65 @@ describe('buildUsageViewModel', () => {
             },
         }, {now: NOW});
 
-        expect(view.panelLabel).toBe('12%');
+        expect(view.panelGroups).toEqual([
+            makePanelGroup('codex', 'Codex', [
+                {key: 'codex-session', label: 's', percentText: '73%'},
+                {key: 'codex-weekly', label: 'w', percentText: '91%'},
+            ]),
+            makePanelGroup('claude', 'Claude', [
+                {key: 'claude-session', label: 's', percentText: '60%'},
+                {key: 'claude-weekly', label: 'w', percentText: '25%'},
+            ]),
+        ]);
 
         const codex = view.services[0];
         expect(codex.name).toBe('Codex');
         expect(codex.windows[0]).toEqual(makeWindow('Session', 73, 'Resets in 2h 18m', 'green'));
-        expect(codex.windows[1]).toEqual(makeWindow('Weekly', 91, 'Resets in 4d 7h', 'green'));
+        expect(codex.windows[1]).toEqual(makeWindow('Week', 91, 'Resets in 4d 7h', 'green'));
         expect(codex.warning).toBe('Codex: authentication expired');
 
         const claude = view.services[1];
         expect(claude.name).toBe('Claude');
         expect(claude.windows[0]).toEqual(makeWindow('Session', 60, 'Resets in 2h 18m', 'yellow'));
-        expect(claude.windows[1]).toEqual(makeWindow('Weekly', 25, 'Resets in 4d 7h', 'red'));
+        expect(claude.windows[1]).toEqual(makeWindow('Week', 25, 'Resets in 4d 7h', 'red'));
         expect(claude.warning).toBe('');
+    });
+
+    test('panelLabelMode expanded spells out session and week', () => {
+        const view = buildUsageViewModel({
+            providers: {
+                claude: {
+                    code: 'OK',
+                    data: {
+                        sessionRemainingPct: 60,
+                        weeklyRemainingPct: 25,
+                        sessionUsedPct: 40,
+                        weeklyUsedPct: 75,
+                    },
+                },
+                codex: {
+                    code: 'OK',
+                    data: {
+                        sessionRemainingPct: 73,
+                        weeklyRemainingPct: 91,
+                        sessionUsedPct: 27,
+                        weeklyUsedPct: 9,
+                    },
+                },
+            },
+        }, {now: NOW, panelLabelMode: 'expanded'});
+
+        expect(view.panelLabelMode).toBe('expanded');
+        expect(view.panelGroups).toEqual([
+            makePanelGroup('codex', 'Codex', [
+                {key: 'codex-session', label: 'Session', percentText: '73%'},
+                {key: 'codex-weekly', label: 'Week', percentText: '91%'},
+            ]),
+            makePanelGroup('claude', 'Claude', [
+                {key: 'claude-session', label: 'Session', percentText: '60%'},
+                {key: 'claude-weekly', label: 'Week', percentText: '25%'},
+            ]),
+        ]);
     });
 
     test('shows warning messages for error states', () => {
@@ -114,86 +171,202 @@ describe('buildUsageViewModel', () => {
         expect(view.version).toBe('test 1.0');
     });
 
-    test('panelLabelMode claude-session shows claude session %', () => {
+    test('panelDisplayModes can render a single selected metric', () => {
         const view = buildUsageViewModel({
-            minRemainingPct: 12.4,
             providers: {
                 claude: {
                     code: 'OK',
-                    data: {sessionRemainingPct: 60, weeklyRemainingPct: 25},
+                    data: {
+                        sessionRemainingPct: 60,
+                        weeklyRemainingPct: 25,
+                        sessionUsedPct: 40,
+                        weeklyUsedPct: 75,
+                    },
                 },
                 codex: {
                     code: 'OK',
-                    data: {sessionRemainingPct: 73, weeklyRemainingPct: 91},
+                    data: {
+                        sessionRemainingPct: 73,
+                        weeklyRemainingPct: 91,
+                        sessionUsedPct: 27,
+                        weeklyUsedPct: 9,
+                    },
                 },
             },
-        }, {now: NOW, panelLabelMode: 'claude-session'});
-        expect(view.panelLabel).toBe('60%');
+        }, {now: NOW, panelDisplayModes: ['claude-session']});
+
+        expect(view.panelGroups).toEqual([
+            makePanelGroup('claude', 'Claude', [
+                {key: 'claude-session', label: 's', percentText: '60%'},
+            ]),
+        ]);
     });
 
-    test('panelLabelMode claude-weekly shows claude weekly %', () => {
+    test('panelDisplayModes preserves selection order and can mix providers', () => {
         const view = buildUsageViewModel({
-            minRemainingPct: 12.4,
+            providers: {
+                codex: {
+                    code: 'OK',
+                    data: {
+                        sessionRemainingPct: 73,
+                        weeklyRemainingPct: 91,
+                        sessionUsedPct: 27,
+                        weeklyUsedPct: 9,
+                    },
+                },
+                claude: {
+                    code: 'OK',
+                    data: {
+                        sessionRemainingPct: 60,
+                        weeklyRemainingPct: 25,
+                        sessionUsedPct: 40,
+                        weeklyUsedPct: 75,
+                    },
+                },
+            },
+        }, {now: NOW, panelDisplayModes: ['claude-weekly', 'codex-session']});
+
+        expect(view.panelGroups).toEqual([
+            makePanelGroup('codex', 'Codex', [
+                {key: 'codex-session', label: 's', percentText: '73%'},
+            ]),
+            makePanelGroup('claude', 'Claude', [
+                {key: 'claude-weekly', label: 'w', percentText: '25%'},
+            ]),
+        ]);
+    });
+
+    test('panelDisplayModes defaults to all four metrics', () => {
+        const view = buildUsageViewModel({
             providers: {
                 claude: {
                     code: 'OK',
-                    data: {sessionRemainingPct: 60, weeklyRemainingPct: 25},
+                    data: {
+                        sessionRemainingPct: 60,
+                        weeklyRemainingPct: 25,
+                        sessionUsedPct: 40,
+                        weeklyUsedPct: 75,
+                    },
                 },
-            },
-        }, {now: NOW, panelLabelMode: 'claude-weekly'});
-        expect(view.panelLabel).toBe('25%');
-    });
-
-    test('panelLabelMode codex-session shows codex session %', () => {
-        const view = buildUsageViewModel({
-            minRemainingPct: 12.4,
-            providers: {
                 codex: {
                     code: 'OK',
-                    data: {sessionRemainingPct: 73, weeklyRemainingPct: 91},
-                },
-            },
-        }, {now: NOW, panelLabelMode: 'codex-session'});
-        expect(view.panelLabel).toBe('73%');
-    });
-
-    test('panelLabelMode codex-weekly shows codex weekly %', () => {
-        const view = buildUsageViewModel({
-            minRemainingPct: 12.4,
-            providers: {
-                codex: {
-                    code: 'OK',
-                    data: {sessionRemainingPct: 73, weeklyRemainingPct: 91},
-                },
-            },
-        }, {now: NOW, panelLabelMode: 'codex-weekly'});
-        expect(view.panelLabel).toBe('91%');
-    });
-
-    test('panelLabelMode defaults to min', () => {
-        const view = buildUsageViewModel({
-            minRemainingPct: 12.4,
-            providers: {
-                claude: {
-                    code: 'OK',
-                    data: {sessionRemainingPct: 60, weeklyRemainingPct: 25},
+                    data: {
+                        sessionRemainingPct: 73,
+                        weeklyRemainingPct: 91,
+                        sessionUsedPct: 27,
+                        weeklyUsedPct: 9,
+                    },
                 },
             },
         }, {now: NOW});
-        expect(view.panelLabel).toBe('12%');
+
+        expect(view.panelGroups).toEqual([
+            makePanelGroup('codex', 'Codex', [
+                {key: 'codex-session', label: 's', percentText: '73%'},
+                {key: 'codex-weekly', label: 'w', percentText: '91%'},
+            ]),
+            makePanelGroup('claude', 'Claude', [
+                {key: 'claude-session', label: 's', percentText: '60%'},
+                {key: 'claude-weekly', label: 'w', percentText: '25%'},
+            ]),
+        ]);
     });
 
-    test('panelLabelMode with missing provider data shows --', () => {
-        const view = buildUsageViewModel({providers: {}}, {now: NOW, panelLabelMode: 'claude-session'});
-        expect(view.panelLabel).toBe('--');
+    test('panelDisplayModes with missing provider data still shows placeholders', () => {
+        const view = buildUsageViewModel({providers: {}}, {
+            now: NOW,
+            panelDisplayModes: ['claude-session'],
+        });
+
+        expect(view.panelGroups).toEqual([
+            makePanelGroup('claude', 'Claude', [
+                {key: 'claude-session', label: 's', percentText: '--'},
+            ]),
+        ]);
     });
 
-    test('panelLabelMode with unknown mode falls back to min', () => {
+    test('panelDisplayModes filters unknown keys out', () => {
         const view = buildUsageViewModel({
-            minRemainingPct: 42,
-            providers: {},
-        }, {now: NOW, panelLabelMode: 'unknown-mode'});
-        expect(view.panelLabel).toBe('42%');
+            providers: {
+                claude: {
+                    code: 'OK',
+                    data: {
+                        sessionRemainingPct: 60,
+                        weeklyRemainingPct: 25,
+                        sessionUsedPct: 40,
+                        weeklyUsedPct: 75,
+                    },
+                },
+            },
+        }, {
+            now: NOW,
+            panelDisplayModes: ['unknown-mode', 'claude-session'],
+        });
+
+        expect(view.panelGroups).toEqual([
+            makePanelGroup('claude', 'Claude', [
+                {key: 'claude-session', label: 's', percentText: '60%'},
+            ]),
+        ]);
+    });
+
+    test('panelPercentMode used shows used values for all selected metrics', () => {
+        const view = buildUsageViewModel({
+            providers: {
+                claude: {
+                    code: 'OK',
+                    data: {
+                        sessionRemainingPct: 60,
+                        weeklyRemainingPct: 25,
+                        sessionUsedPct: 40,
+                        weeklyUsedPct: 75,
+                    },
+                },
+                codex: {
+                    code: 'OK',
+                    data: {
+                        sessionRemainingPct: 73,
+                        weeklyRemainingPct: 91,
+                        sessionUsedPct: 27,
+                        weeklyUsedPct: 9,
+                    },
+                },
+            },
+        }, {
+            now: NOW,
+            panelDisplayModes: ['codex-weekly', 'claude-session'],
+            panelPercentMode: 'used',
+        });
+
+        expect(view.panelGroups).toEqual([
+            makePanelGroup('codex', 'Codex', [
+                {key: 'codex-weekly', label: 'w', percentText: '9%'},
+            ]),
+            makePanelGroup('claude', 'Claude', [
+                {key: 'claude-session', label: 's', percentText: '40%'},
+            ]),
+        ]);
+    });
+
+    test('empty panelDisplayModes hides all panel groups', () => {
+        const view = buildUsageViewModel({
+            providers: {
+                claude: {
+                    code: 'OK',
+                    data: {
+                        sessionRemainingPct: 60,
+                        weeklyRemainingPct: 25,
+                        sessionUsedPct: 40,
+                        weeklyUsedPct: 75,
+                    },
+                },
+            },
+        }, {
+            now: NOW,
+            panelDisplayModes: [],
+        });
+
+        expect(view.panelGroups).toEqual([]);
     });
 });
 
