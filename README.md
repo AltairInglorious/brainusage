@@ -67,7 +67,7 @@ Once enabled, a provider-marked indicator appears in the top panel. Click it to 
 
 ### Panel display modes
 
-Open the popup and use the **Panel metrics** switches to choose which top-bar values are shown:
+Open the popup and use the **Panel metrics** switches to choose which top-bar values are shown. The popup stays open while you toggle them, so you can adjust several at once before closing it:
 
 | Mode | Description |
 |------|-------------|

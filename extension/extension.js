@@ -28,6 +28,18 @@ const FILL_CLASSES = {
     red: 'usage-fill-red',
 };
 
+const StayOpenSwitchMenuItem = GObject.registerClass(
+class StayOpenSwitchMenuItem extends PopupMenu.PopupSwitchMenuItem {
+    activate(event) {
+        if (this._switch?.mapped)
+            this.toggle();
+
+        // Keep the panel menu open so users can toggle multiple display modes
+        // before dismissing the popup.
+        return Clutter.EVENT_STOP;
+    }
+});
+
 function getProviderStyleClass(baseClass, providerKey) {
     const classes = [baseClass];
 
@@ -313,7 +325,7 @@ class UsageIndicator extends PanelMenu.Button {
         this._displayModeItems = [];
 
         for (const mode of PANEL_DISPLAY_MODES) {
-            const item = new PopupMenu.PopupSwitchMenuItem(
+            const item = new StayOpenSwitchMenuItem(
                 MODE_LABELS[mode] ?? mode,
                 this._getPanelDisplayModes().includes(mode),
             );
