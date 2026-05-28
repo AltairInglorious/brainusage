@@ -7,8 +7,9 @@ node_modules/
 extension/lib/core/
 extension/lib/providers/
 extension/lib/ui/
-kde/plasma5/contents/code/brainusage-core.mjs
-kde/plasma6/contents/code/brainusage-core.mjs
+# KDE bundled core + copied runtime (built into each variant's contents/code/)
+kde/plasma5/contents/code/
+kde/plasma6/contents/code/
 .env
 .env.*
 *.pem

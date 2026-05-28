@@ -5,6 +5,11 @@
   "type": "module",
   "scripts": {
     "test": "bun test",
-    "smoke:pack": "bash scripts/smoke/pack.sh"
+    "smoke:pack": "bash scripts/smoke/pack.sh",
+    "pack:gnome": "bash scripts/gnome/pack.sh",
+    "pack:kde": "bash scripts/kde/pack.sh"
+  },
+  "devDependencies": {
+    "esbuild": "^0.21.0"
   }
 }

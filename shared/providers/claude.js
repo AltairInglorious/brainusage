@@ -1,4 +1,5 @@
 import {normalizeClaudeUsage} from '../core/normalize.js';
+import {encodeForm} from '../core/http.js';
 
 const CREDENTIALS_PATH = '~/.claude/.credentials.json';
 const REFRESH_ENDPOINT = 'https://platform.claude.com/v1/oauth/token';
@@ -121,7 +122,7 @@ async function refreshAccessToken(fetchImpl, refreshToken) {
     if (!refreshToken)
         return fail('auth_expired', 'OAuth refresh token is missing');
 
-    const body = new URLSearchParams({
+    const body = encodeForm({
         grant_type: 'refresh_token',
         refresh_token: refreshToken,
         client_id: CLAUDE_CLIENT_ID,

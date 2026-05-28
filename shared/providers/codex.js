@@ -1,4 +1,5 @@
 import {normalizeCodexUsage} from '../core/normalize.js';
+import {encodeForm} from '../core/http.js';
 
 const CREDENTIALS_PATH = '~/.codex/auth.json';
 const REFRESH_ENDPOINT = 'https://auth.openai.com/oauth/token';
@@ -86,7 +87,7 @@ async function refreshAccessToken(fetchImpl, refreshToken) {
     if (!refreshToken)
         return fail('auth_expired', 'OAuth refresh token is missing');
 
-    const body = new URLSearchParams({
+    const body = encodeForm({
         grant_type: 'refresh_token',
         client_id: CODEX_CLIENT_ID,
         refresh_token: refreshToken,

@@ -1,0 +1,20 @@
+{
+    "KPlugin": {
+        "Id": "org.altairinglorious.brainusage",
+        "Name": "Brain Usage",
+        "Description": "Track Claude and Codex AI usage limits in the panel.",
+        "Icon": "utilities-system-monitor",
+        "Category": "System Information",
+        "Authors": [
+            {
+                "Name": "AltairInglorious"
+            }
+        ],
+        "Version": "0.0.1",
+        "Website": "https://github.com/AltairInglorious/brainusage",
+        "License": "MIT"
+    },
+    "X-Plasma-API": "declarativeappletscript",
+    "X-Plasma-MainScript": "ui/main.qml",
+    "KPackageStructure": "Plasma/Applet"
+}
