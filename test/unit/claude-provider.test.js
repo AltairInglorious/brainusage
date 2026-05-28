@@ -1,6 +1,6 @@
 import {describe, expect, test} from 'bun:test';
 
-import {createClaudeProvider, claudeProviderConfig} from '../../extension/lib/providers/claude.js';
+import {createClaudeProvider, claudeProviderConfig} from '../../shared/providers/claude.js';
 
 function createJsonResponse(status, payload) {
     return {

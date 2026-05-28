@@ -1,6 +1,6 @@
 import {describe, expect, test} from 'bun:test';
 
-import {createThresholdNotifier} from '../../extension/lib/core/notifications.js';
+import {createThresholdNotifier} from '../../shared/core/notifications.js';
 
 function createSummary(overrides = {}) {
     return {

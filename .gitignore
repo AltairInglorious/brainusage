@@ -1,6 +1,14 @@
 node_modules/
 *.shell-extension.zip
+*.plasmoid
 .sisyphus/
+
+# Core vendored from shared/ into platform packages at build time
+extension/lib/core/
+extension/lib/providers/
+extension/lib/ui/
+kde/plasma5/contents/code/brainusage-core.mjs
+kde/plasma6/contents/code/brainusage-core.mjs
 .env
 .env.*
 *.pem

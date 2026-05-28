@@ -1,6 +1,6 @@
 import {describe, expect, test} from 'bun:test';
 
-import {codexProviderConfig, createCodexProvider} from '../../extension/lib/providers/codex.js';
+import {codexProviderConfig, createCodexProvider} from '../../shared/providers/codex.js';
 
 function createJsonResponse(status, payload) {
     return {

@@ -1,7 +1,7 @@
 import {afterEach, describe, expect, setSystemTime, test, vi} from 'bun:test';
 
-import {createBackoffManager} from '../../extension/lib/core/backoff.js';
-import {createScheduler, DEFAULT_POLL_INTERVAL_MS} from '../../extension/lib/core/scheduler.js';
+import {createBackoffManager} from '../../shared/core/backoff.js';
+import {createScheduler, DEFAULT_POLL_INTERVAL_MS} from '../../shared/core/scheduler.js';
 
 async function flushMicrotasks() {
     await Promise.resolve();

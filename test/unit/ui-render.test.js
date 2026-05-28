@@ -1,6 +1,6 @@
 import {describe, expect, test} from 'bun:test';
 
-import {buildUsageViewModel, formatRelativeTime, getDotColor, PANEL_LABEL_MODES} from '../../extension/lib/ui/render.js';
+import {buildUsageViewModel, formatRelativeTime, getDotColor, PANEL_LABEL_MODES} from '../../shared/ui/render.js';
 
 const NOW = new Date('2026-02-09T10:00:00Z').getTime();
 

@@ -1,8 +1,8 @@
 import {describe, expect, test} from 'bun:test';
 
-import {createBackoffManager} from '../../extension/lib/core/backoff.js';
-import {claudeProviderConfig, createClaudeProvider} from '../../extension/lib/providers/claude.js';
-import {codexProviderConfig, createCodexProvider} from '../../extension/lib/providers/codex.js';
+import {createBackoffManager} from '../../shared/core/backoff.js';
+import {claudeProviderConfig, createClaudeProvider} from '../../shared/providers/claude.js';
+import {codexProviderConfig, createCodexProvider} from '../../shared/providers/codex.js';
 
 function createJsonResponse(status, payload) {
     return {
